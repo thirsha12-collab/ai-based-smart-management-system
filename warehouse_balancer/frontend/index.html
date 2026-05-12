@@ -1,0 +1,460 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>NexusWork AI — Smart Workload Platform</title>
+<meta name="description" content="Enterprise warehouse workload balancing with real-time AI routing and admin-controlled break management."/>
+<link rel="stylesheet" href="style.css"/>
+<script src="https://cdn.socket.io/4.7.4/socket.io.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+</head>
+<body>
+
+<!-- ═══════════════════════ LOGIN ═══════════════════════ -->
+<div id="loginView">
+  <div class="login-box">
+    <div class="login-logo">⚡</div>
+    <h1>NexusWork <span style="color:#a78bfa">AI</span></h1>
+    <p>Smart Warehouse Workload Platform v3.0</p>
+    <form id="loginForm">
+      <div class="field-group">
+        <label>Username</label>
+        <input id="usernameInput" type="text" placeholder="admin or john, sarah…" autocomplete="username" required/>
+      </div>
+      <div class="field-group">
+        <label>Password</label>
+        <input id="passwordInput" type="password" placeholder="••••••••" autocomplete="current-password" required/>
+      </div>
+      <div id="loginError" class="hidden" style="color:#fda4af;font-size:.8rem;margin-bottom:1rem;padding:.6rem .9rem;background:rgba(244,63,94,.08);border:1px solid rgba(244,63,94,.2);border-radius:8px">
+        Invalid credentials. Try again.
+      </div>
+      <button id="loginBtn" type="submit" class="btn btn-primary btn-full">Sign In</button>
+    </form>
+    <p style="color:var(--txt3);font-size:.72rem;text-align:center;margin-top:1.25rem">
+      Admin: <strong style="color:var(--txt2)">admin / admin</strong> &nbsp;|&nbsp; Staff: <strong style="color:var(--txt2)">john / 1234</strong>
+    </p>
+  </div>
+</div>
+
+<!-- ═══════════════════════ ADMIN VIEW ═══════════════════════ -->
+<div id="adminView" class="hidden">
+  <!-- Top Nav -->
+  <nav class="top-nav">
+    <div class="nav-logo">⚡</div>
+    <span class="nav-brand">Nexus<span>Work</span></span>
+    <div style="flex:1"></div>
+    <div class="nav-kpi kpi-live" style="gap:.4rem">
+      <div class="dot"></div>
+      <span style="font-size:.72rem;color:var(--txt2)">System Live</span>
+    </div>
+    <div class="nav-kpi" style="gap:.4rem">
+      <span style="font-size:.7rem;color:var(--txt3)">Orders done</span>
+      <span id="totalOrders" style="font-weight:800;color:var(--txt);font-family:'JetBrains Mono',monospace">0</span>
+    </div>
+    <div class="nav-kpi" style="gap:.4rem">
+      <span style="font-size:.7rem;color:var(--txt3)">Load</span>
+      <span id="systemLoad" style="font-weight:800;font-family:'JetBrains Mono',monospace;color:var(--cyan)">0%</span>
+    </div>
+    <div class="nav-kpi" style="gap:.4rem">
+      <span style="font-size:.7rem;color:var(--txt3)">AI</span>
+      <span id="mlConfidence" style="font-weight:700;color:#a78bfa;font-size:.72rem">0%</span>
+    </div>
+    <button onclick="logout()" class="btn btn-ghost" style="padding:.4rem .85rem;font-size:.78rem">← Logout</button>
+  </nav>
+
+  <div class="admin-body">
+    <!-- Sidebar -->
+    <aside class="sidebar">
+      <span class="sidebar-label">Navigation</span>
+      <button id="tab-dashboard" class="tab-btn active" onclick="showAdminTab('dashboard')">
+        <span class="tab-icon">📊</span> Dashboard
+      </button>
+      <button id="tab-orders" class="tab-btn" onclick="showAdminTab('orders')">
+        <span class="tab-icon">📦</span> Orders
+      </button>
+      <button id="tab-analytics" class="tab-btn" onclick="showAdminTab('analytics')">
+        <span class="tab-icon">📈</span> Analytics
+      </button>
+      <button id="tab-leaderboard" class="tab-btn" onclick="showAdminTab('leaderboard')">
+        <span class="tab-icon">🏆</span> Rankings
+      </button>
+      <button id="tab-worklogs" class="tab-btn" onclick="showAdminTab('worklogs')">
+        <span class="tab-icon">📋</span> Work Logs
+      </button>
+      <button id="tab-employees" class="tab-btn" onclick="showAdminTab('employees')">
+        <span class="tab-icon">👥</span> Staff
+      </button>
+      <div style="flex:1"></div>
+      <span class="sidebar-label">System</span>
+      <div style="padding:.5rem .75rem;font-size:.7rem;color:var(--txt3)">
+        Uptime <span id="sysUptime" class="mono" style="color:var(--txt2)">--:--:--</span>
+      </div>
+      <div style="padding:.25rem .75rem .75rem;font-size:.7rem;color:var(--txt3)">
+        RAM <span id="sysMemory" class="mono" style="color:var(--txt2)">—</span>
+      </div>
+    </aside>
+
+    <!-- Main -->
+    <main class="main-content">
+
+      <!-- ── DASHBOARD PANEL ── -->
+      <section id="panel-dashboard" class="panel active">
+        <!-- KPI Row -->
+        <div class="kpi-row" style="margin-bottom:1.25rem">
+          <div class="kpi-card">
+            <div class="kpi-label">Completed</div>
+            <div class="kpi-val" id="kpi-completed">0</div>
+            <div class="kpi-sub">Total orders fulfilled</div>
+          </div>
+          <div class="kpi-card">
+            <div class="kpi-label">Queue Size</div>
+            <div class="kpi-val" id="queueSize" style="color:var(--cyan)">0</div>
+            <div class="kpi-sub">Active assignments</div>
+          </div>
+          <div class="kpi-card">
+            <div class="kpi-label">Unassigned</div>
+            <div class="kpi-val" id="unassignedOrders" style="color:var(--amber)">0</div>
+            <div class="kpi-sub">Awaiting AI routing</div>
+          </div>
+          <div class="kpi-card">
+            <div class="kpi-label">Throughput</div>
+            <div class="kpi-val" id="throughput60s" style="color:var(--emerald)">0</div>
+            <div class="kpi-sub">Orders per 60 sec</div>
+          </div>
+        </div>
+
+        <div class="grid-2">
+          <!-- Workers Grid -->
+          <div>
+            <div class="sec-hdr">
+              <div>
+                <h2>Workforce Status</h2>
+                <p>Real-time employee overview</p>
+              </div>
+              <div class="zone-pills">
+                <div id="zf-all"  class="zone-pill active" onclick="applyZoneFilter('all')">All</div>
+                <div id="zf-s1"   class="zone-pill" onclick="applyZoneFilter('Sector 1')">S1</div>
+                <div id="zf-s2"   class="zone-pill" onclick="applyZoneFilter('Sector 2')">S2</div>
+                <div id="zf-s3"   class="zone-pill" onclick="applyZoneFilter('Sector 3')">S3</div>
+                <div id="zf-s4"   class="zone-pill" onclick="applyZoneFilter('Sector 4')">S4</div>
+              </div>
+            </div>
+            <div id="workersGrid" class="workers-grid"></div>
+          </div>
+
+          <!-- Right column -->
+          <div style="display:flex;flex-direction:column;gap:1rem">
+            <!-- Chart -->
+            <div class="glass" style="padding:1.25rem">
+              <div class="sec-hdr" style="margin-bottom:.75rem">
+                <h2>System Load</h2>
+                <span class="badge badge-violet">Live</span>
+              </div>
+              <div class="chart-wrap"><canvas id="analyticsChart"></canvas></div>
+            </div>
+
+            <!-- AI Forecast -->
+            <div class="glass" style="padding:1.25rem">
+              <div class="sec-hdr" style="margin-bottom:.5rem"><h2>AI Forecast</h2></div>
+              <p id="aiForecast" style="font-size:.85rem;color:var(--txt2)">Stable</p>
+              <div style="display:flex;gap:.5rem;flex-wrap:wrap;margin-top:.75rem">
+                <span style="font-size:.7rem;color:var(--txt3)">Model weights:</span>
+                <span id="mlWeightInfo" class="mono" style="font-size:.7rem;color:#a78bfa">—</span>
+              </div>
+            </div>
+
+            <!-- Terminal Logs -->
+            <div>
+              <div class="sec-hdr" style="margin-bottom:.5rem"><h2>System Log</h2></div>
+              <div id="terminalLogs" class="terminal"></div>
+            </div>
+
+            <!-- Floorplan -->
+            <div class="glass" style="padding:1rem">
+              <div class="sec-hdr" style="margin-bottom:.5rem"><h2>Warehouse Map</h2></div>
+              <canvas id="warehouseFloorplan" height="200"></canvas>
+            </div>
+          </div>
+        </div>
+
+        <!-- Admin Actions Bar -->
+        <div style="display:flex;gap:.75rem;flex-wrap:wrap;padding:1rem;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);margin-top:.25rem">
+          <span style="font-size:.75rem;font-weight:700;color:var(--txt3);text-transform:uppercase;letter-spacing:.6px;align-self:center">Quick Actions:</span>
+          <button id="addOrderBtn" class="btn btn-cyan">+ New Order</button>
+          <button id="bulkOrderBtn" class="btn btn-violet" style="background:rgba(124,58,237,.15);color:#c4b5fd;border:1px solid rgba(124,58,237,.25)">⚡ Bulk Inject</button>
+          <a href="/api/admin/export" class="btn btn-ghost" style="text-decoration:none">⬇ Export CSV</a>
+        </div>
+      </section>
+
+      <!-- ── ORDERS PANEL ── -->
+      <section id="panel-orders" class="panel">
+        <div class="sec-hdr">
+          <div><h2>Live Order Queue</h2><p>Manage and reassign active tasks</p></div>
+          <div style="display:flex;gap:.5rem">
+            <button id="addOrderBtn2" class="btn btn-cyan" onclick="openOrderModal()">+ New Order</button>
+            <button class="btn btn-ghost" style="background:rgba(124,58,237,.12);color:#c4b5fd;border-color:rgba(124,58,237,.2)" onclick="openBulkModal()">⚡ Bulk</button>
+          </div>
+        </div>
+        <div style="display:flex;gap:1rem;margin-bottom:1rem;flex-wrap:wrap">
+          <div class="kpi-card" style="flex:1;min-width:120px">
+            <div class="kpi-label">Pending</div>
+            <div class="kpi-val" id="oq-pending" style="color:var(--emerald)">—</div>
+          </div>
+          <div class="kpi-card" style="flex:1;min-width:120px">
+            <div class="kpi-label">Unassigned</div>
+            <div class="kpi-val" id="oq-unassigned" style="color:var(--amber)">—</div>
+          </div>
+          <div class="kpi-card" style="flex:1;min-width:120px">
+            <div class="kpi-label">High Priority</div>
+            <div class="kpi-val" id="oq-high" style="color:var(--rose)">—</div>
+          </div>
+        </div>
+        <div class="glass" style="overflow-x:auto">
+          <table class="data-table">
+            <thead><tr>
+              <th>#ID</th><th>Title</th><th>Priority</th><th>Status</th>
+              <th>Assigned To</th><th>Zone</th><th>Created</th><th>Action</th>
+            </tr></thead>
+            <tbody id="orderQueueTable">
+              <tr><td colspan="8" style="text-align:center;padding:2rem;color:var(--txt3)">Loading queue…</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- ── ANALYTICS PANEL ── -->
+      <section id="panel-analytics" class="panel">
+        <div class="sec-hdr"><h2>Performance Analytics</h2><p>AI training stats & workforce efficiency</p></div>
+        <div class="kpi-row" style="margin-bottom:1.25rem">
+          <div class="kpi-card"><div class="kpi-label">Total Completed</div><div class="kpi-val" id="an-total" style="color:var(--violet)">—</div></div>
+          <div class="kpi-card"><div class="kpi-label">Orders / Hour</div><div class="kpi-val" id="an-throughput-hr" style="color:var(--cyan)">—</div></div>
+          <div class="kpi-card"><div class="kpi-label">Avg Completion</div><div class="kpi-val" id="an-avg-time" style="font-size:1.4rem;color:var(--emerald)">—</div></div>
+          <div class="kpi-card"><div class="kpi-label">ML Training Steps</div><div class="kpi-val" id="an-ml" style="color:#a78bfa">—</div></div>
+        </div>
+        <div class="grid-2" style="margin-bottom:1rem">
+          <div class="glass" style="padding:1.25rem">
+            <div class="sec-hdr" style="margin-bottom:.75rem"><h2>Task Completion by Worker</h2></div>
+            <div class="chart-wrap"><canvas id="barChart"></canvas></div>
+          </div>
+          <div class="glass" style="padding:1.25rem">
+            <div class="sec-hdr" style="margin-bottom:.75rem"><h2>Workforce Stress Distribution</h2></div>
+            <div class="chart-wrap"><canvas id="doughnutChart"></canvas></div>
+          </div>
+        </div>
+        <div class="glass" style="padding:1.25rem">
+          <div class="sec-hdr" style="margin-bottom:.75rem"><h2>Throughput Timeline</h2></div>
+          <div class="chart-wrap"><canvas id="timelineChart"></canvas></div>
+        </div>
+        <div class="glass" style="padding:1.25rem;margin-top:1rem">
+          <div class="sec-hdr" style="margin-bottom:.75rem"><h2>Fatigue Heatmap</h2></div>
+          <div id="fatigueRows" style="display:flex;flex-direction:column;gap:.7rem"></div>
+        </div>
+      </section>
+
+      <!-- ── LEADERBOARD PANEL ── -->
+      <section id="panel-leaderboard" class="panel">
+        <div class="sec-hdr"><h2>Performance Leaderboard</h2><p>Ranked by level & QA score</p></div>
+        <div id="leaderboardTable"></div>
+      </section>
+
+      <!-- ── WORKLOGS PANEL ── -->
+      <section id="panel-worklogs" class="panel">
+        <div class="sec-hdr"><h2>Work Activity Logs</h2><p>Full audit trail of warehouse actions</p></div>
+        <div class="glass" style="overflow-x:auto">
+          <table class="data-table">
+            <thead><tr><th>Time</th><th>Employee</th><th>Action</th><th>Detail</th></tr></thead>
+            <tbody id="workLogTable">
+              <tr><td colspan="4" style="text-align:center;padding:2rem;color:var(--txt3)">Loading…</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- ── EMPLOYEES PANEL ── -->
+      <section id="panel-employees" class="panel">
+        <div class="sec-hdr">
+          <div><h2>Staff Management</h2><p>Admin break control &amp; workforce CRUD</p></div>
+          <button onclick="openAddModal()" class="btn btn-primary">+ Add Employee</button>
+        </div>
+        <div style="padding:.75rem 1rem;background:rgba(245,158,11,.06);border:1px solid rgba(245,158,11,.2);border-radius:var(--radius);margin-bottom:1rem;font-size:.8rem;color:#fde68a">
+          🔒 <strong>Break Control is admin-only.</strong> Employees cannot request or self-manage their own breaks.
+        </div>
+        <div id="staffTable" style="display:flex;flex-direction:column;gap:.6rem"></div>
+      </section>
+
+    </main>
+  </div>
+</div>
+
+<!-- ═══════════════════════ EMPLOYEE VIEW ═══════════════════════ -->
+<div id="employeeView" class="hidden">
+  <nav class="emp-nav">
+    <div style="display:flex;align-items:center;gap:.75rem">
+      <div class="nav-logo">⚡</div>
+      <div>
+        <div style="font-weight:800;font-size:.9rem">NexusWork</div>
+        <div style="font-size:.68rem;color:var(--txt3)">Employee Portal</div>
+      </div>
+    </div>
+    <div style="display:flex;align-items:center;gap:.75rem">
+      <div style="display:flex;align-items:center;gap:.5rem">
+        <span style="font-size:.75rem;color:var(--txt2)">Shift:</span>
+        <span id="shiftTimer" class="mono" style="font-size:.8rem;font-weight:700;color:var(--cyan)">00:00:00</span>
+      </div>
+      <span id="empStatusPill" class="badge badge-emerald">● Online</span>
+      <button onclick="logout()" class="btn btn-ghost" style="padding:.4rem .85rem;font-size:.78rem">Logout</button>
+    </div>
+  </nav>
+
+  <div class="emp-body">
+    <!-- Hero -->
+    <div class="emp-hero" style="margin-bottom:1.25rem">
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:1rem;flex-wrap:wrap">
+        <div>
+          <div style="font-size:.72rem;font-weight:700;color:#a78bfa;text-transform:uppercase;letter-spacing:.7px;margin-bottom:.3rem">Welcome back,</div>
+          <div id="empNameBanner" style="font-size:1.8rem;font-weight:800;letter-spacing:-.5px">Employee</div>
+          <div id="statusIndicatorBanner" style="display:inline-block;margin-top:.5rem;font-size:.78rem;font-weight:600;padding:.25rem .8rem;border-radius:99px">Online — Active</div>
+        </div>
+        <div style="display:flex;flex-direction:column;align-items:flex-end;gap:.5rem">
+          <div style="font-size:.7rem;color:var(--txt3)">Your QA Progress</div>
+          <div style="display:flex;align-items:baseline;gap:.3rem">
+            <span id="qaDisplay" style="font-size:2rem;font-weight:800;color:#a78bfa">0/100</span>
+            <span style="font-size:.8rem;color:var(--txt3)">pts</span>
+          </div>
+          <div style="width:160px;height:6px;background:rgba(255,255,255,.08);border-radius:99px;overflow:hidden">
+            <div id="qaBar" style="height:100%;border-radius:99px;background:linear-gradient(90deg,var(--violet),var(--cyan));transition:width .5s;width:0%"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Stats Row -->
+    <div class="emp-stats-row">
+      <div class="emp-stat">
+        <div class="val" id="empLevelBig" style="color:#a78bfa">1</div>
+        <div class="lbl">Level</div>
+      </div>
+      <div class="emp-stat">
+        <div class="val" id="empDoneBig" style="color:var(--emerald)">0</div>
+        <div class="lbl">Tasks Done</div>
+      </div>
+      <div class="emp-stat">
+        <div class="val" id="empEfficiency" style="color:var(--cyan)">0.00</div>
+        <div class="lbl">Efficiency ×</div>
+      </div>
+    </div>
+
+    <!-- Task Count Header -->
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:.75rem">
+      <span style="font-size:.95rem;font-weight:700">Your Tasks</span>
+      <span id="empTaskCount" class="badge badge-violet">0 tasks</span>
+    </div>
+
+    <!-- Orders List -->
+    <div id="employeeOrdersList"></div>
+
+    <!-- Break notice (only shown when on break) -->
+    <div id="empBreakNotice" class="break-banner hidden" style="margin-top:1rem">
+      <div style="font-size:2.5rem;margin-bottom:.5rem">☕</div>
+      <div style="font-weight:800;font-size:1.1rem;margin-bottom:.3rem">Break Mode Active</div>
+      <div style="font-size:.85rem;color:var(--txt2)">Your manager has assigned you a rest period.<br>Your tasks have been safely rerouted to active team members.</div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════ MODALS ═══════════════════════ -->
+<!-- New Order Modal -->
+<div id="orderModal" class="modal-overlay hidden">
+  <div class="modal-box">
+    <h3 class="modal-title">📦 Dispatch New Order</h3>
+    <form id="orderForm">
+      <div class="form-row">
+        <label>Order Title</label>
+        <input id="orderTitle" type="text" placeholder="e.g. Pallet move — Bay 7A"/>
+      </div>
+      <div class="form-row">
+        <label>Priority</label>
+        <select id="orderPriority">
+          <option value="Low">Low</option>
+          <option value="Medium" selected>Medium</option>
+          <option value="High">High</option>
+        </select>
+      </div>
+      <div class="form-row">
+        <label>Zone (optional)</label>
+        <select id="orderZone">
+          <option value="">Auto — AI selects</option>
+          <option value="Sector 1">Sector 1</option>
+          <option value="Sector 2">Sector 2</option>
+          <option value="Sector 3">Sector 3</option>
+          <option value="Sector 4">Sector 4</option>
+        </select>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-ghost" onclick="closeOrderModal()">Cancel</button>
+        <button type="submit" class="btn btn-primary">Dispatch Order</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Bulk Order Modal -->
+<div id="bulkModal" class="modal-overlay hidden">
+  <div class="modal-box">
+    <h3 class="modal-title">⚡ Bulk Order Injection</h3>
+    <div class="form-row">
+      <label>Count: <span id="bulkCountLabel" style="color:var(--violet)">5</span></label>
+      <input id="bulkCount" type="range" min="1" max="30" value="5" oninput="document.getElementById('bulkCountLabel').textContent=this.value"/>
+    </div>
+    <div class="form-row">
+      <label>Priority</label>
+      <select id="bulkPriority">
+        <option value="Low">Low</option>
+        <option value="Medium" selected>Medium</option>
+        <option value="High">High</option>
+      </select>
+    </div>
+    <form id="bulkForm">
+      <div class="modal-footer">
+        <button type="button" class="btn btn-ghost" onclick="closeBulkModal()">Cancel</button>
+        <button type="submit" class="btn btn-primary">Inject Orders</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Add Employee Modal -->
+<div id="addModal" class="modal-overlay hidden">
+  <div class="modal-box">
+    <h3 class="modal-title">👤 Add New Employee</h3>
+    <form id="addEmpForm">
+      <div class="form-row"><label>Full Name</label><input id="newEmpName" required placeholder="e.g. Alex Torres"/></div>
+      <div class="form-row"><label>Role</label><input id="newEmpRole" placeholder="e.g. Inventory Specialist"/></div>
+      <div class="form-row">
+        <label>Zone</label>
+        <select id="newEmpZone">
+          <option value="Sector 1">Sector 1</option>
+          <option value="Sector 2">Sector 2</option>
+          <option value="Sector 3">Sector 3</option>
+          <option value="Sector 4">Sector 4</option>
+        </select>
+      </div>
+      <div class="form-row"><label>Equipment</label><input id="newEmpEquip" placeholder="e.g. Forklift, Tablet"/></div>
+      <div id="addResult" class="hidden" style="margin-top:.5rem;font-size:.8rem;padding:.65rem .9rem;border-radius:8px"></div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-ghost" onclick="closeAddModal()">Cancel</button>
+        <button type="submit" class="btn btn-primary">Create Employee</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Toast Container -->
+<div id="toastContainer"></div>
+<!-- Confetti Canvas -->
+<canvas id="confettiCanvas"></canvas>
+
+<script src="script.js"></script>
+</body>
+</html>

@@ -1,0 +1,12 @@
+# Exclude database files to prevent stale state loading over deployments
+backend/warehouse.db
+
+# Cache and local environments
+__pycache__/
+*.pyc
+venv/
+.env
+
+# Git ignore maps
+.git
+.gitignore

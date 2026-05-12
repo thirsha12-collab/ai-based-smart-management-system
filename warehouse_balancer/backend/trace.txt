@@ -1,0 +1,4 @@
+Starting Phase 2 Warehouse Workload WebSocket Simulation...
+Server running natively on http://127.0.0.1:5000
+ * Serving Flask app 'app'
+ * Debug mode: on
