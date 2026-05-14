@@ -19,8 +19,7 @@ let animW             = {};
 
 const ZONES = {
   'Sector 1':  {x:55, y:50},
-  'Sector 2':  {x:195,y:5            <div style="font-size:.78rem;color:var(--txt3)">Today: <strong style="color:var(--txt)">${formatHoursMinutes(w.hours_today)}</strong> · Break: <strong style="color:var(--txt)">${w.break_time_total_minutes||0}min</strong></div>
-           </div>,
+  'Sector 2':  {x:195,y:50},
   'Sector 3':  {x:55, y:150},
   'Sector 4':  {x:195,y:150},
   'Break Room':{x:125,y:100},

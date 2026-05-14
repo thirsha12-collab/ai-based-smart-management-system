@@ -546,7 +546,7 @@ class WorkloadBalancer:
             workers_list.append({**dict(w),
                                  'hours_today': round(work_seconds / 3600.0, 2),
                                  'break_minutes_today': int(round(break_seconds / 60.0)),
-                                 'break_time_total_minutes': int(round((w.get('break_time_taken') or 0) / 60.0))
+                                 'break_time_total_minutes': int(round((w['break_time_taken'] or 0) / 60.0))
                                  })
 
         return {
